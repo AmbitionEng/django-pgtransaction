@@ -47,8 +47,8 @@ classifiers = [
 ]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://github.com/Opus10/django-pgtransaction"
-repository = "https://github.com/Opus10/django-pgtransaction"
+homepage = "https://github.com/AmbitionEng/django-pgtransaction"
+repository = "https://github.com/AmbitionEng/django-pgtransaction"
 documentation = "https://django-pgtransaction.readthedocs.io"
 
 [tool.poetry.dependencies]

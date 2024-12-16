@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 (2024-12-15)
+
+#### Changes
+
+  - Changed project ownership to `AmbitionEng` by [@wesleykendall](https://github.com/wesleykendall) in [#16](https://github.com/AmbitionEng/django-pgtransaction/pull/16).
+
 ## 1.5.0 (2024-11-01)
 
 #### Changes

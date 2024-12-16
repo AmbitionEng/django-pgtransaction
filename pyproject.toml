@@ -27,7 +27,7 @@ packages = [
 exclude = [
   "*/tests/"
 ]
-version = "1.5.0"
+version = "1.5.1"
 description = "A context manager/decorator which extends Django's atomic function with the ability to set isolation level and retries for a given transaction."
 authors = ["Paul Gilmartin", "Wes Kendall"]
 classifiers = [
@@ -47,8 +47,8 @@ classifiers = [
 ]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://github.com/Opus10/django-pgtransaction"
-repository = "https://github.com/Opus10/django-pgtransaction"
+homepage = "https://github.com/AmbitionEng/django-pgtransaction"
+repository = "https://github.com/AmbitionEng/django-pgtransaction"
 documentation = "https://django-pgtransaction.readthedocs.io"
 
 [tool.poetry.dependencies]

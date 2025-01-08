@@ -1,4 +1,4 @@
-from functools import wraps
+from functools import cached_property, wraps
 from typing import Union
 
 import django
@@ -27,7 +27,7 @@ class Atomic(transaction.Atomic):
             super().__init__(using, savepoint)
 
         self.isolation_level = isolation_level
-        self.retry = retry
+        self._retry = retry
         self._used_as_context_manager = True
 
         if self.isolation_level:  # pragma: no cover
@@ -42,6 +42,20 @@ class Atomic(transaction.Atomic):
                 SERIALIZABLE,
             ):
                 raise ValueError(f'Invalid isolation level "{self.isolation_level}"')
+
+    @cached_property
+    def retry(self):
+        """
+        Lazily load the configured retry value
+
+        We do this so that atomic decorators can be instantiated without an
+        implicit dependency on Django settings being configured.
+
+        Note that this is not fully thread safe as the cached_property decorator
+        can be redundantly called by multiple threads, but there should be no
+        adverse effect in this case.
+        """
+        return self._retry if self._retry is not None else config.retry()
 
     @property
     def connection(self):
@@ -171,10 +185,6 @@ def atomic(
         Attempting to set a non-zero value for `retry` when using [pgtransaction.atomic][]
         as a context manager will result in a `RuntimeError`.
     """
-
-    if retry is None:
-        retry = config.retry()
-
     # Copies structure of django.db.transaction.atomic
     if callable(using):
         return Atomic(

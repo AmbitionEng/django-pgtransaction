@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.2 (2025-01-10)
+
+#### Fixes
+
+  - Lazily load Django settings when using `pgtransaction` drop-in decorator by [@muscovite](https://github.com/muscovite) in [#17](https://github.com/AmbitionEng/django-pgtransaction/pull/17).
+
 ## 1.5.1 (2024-12-15)
 
 #### Changes

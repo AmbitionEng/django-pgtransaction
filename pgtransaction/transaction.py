@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property, wraps
-from typing import Any, Callable, Final, TypeVar, overload
+from typing import Any, Callable, Final, Literal, TypeVar, overload
 
 import django
 from django.db import DEFAULT_DB_ALIAS, Error, transaction
@@ -22,7 +22,7 @@ class Atomic(transaction.Atomic):
         using: str | None,
         savepoint: bool,
         durable: bool,
-        isolation_level: str | None,
+        isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None,
         retry: int | None,
     ):
         if django.VERSION >= (3, 2):
@@ -128,7 +128,7 @@ def atomic(
     using: str | None = None,
     savepoint: bool = True,
     durable: bool = False,
-    isolation_level: str | None = None,
+    isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
 ) -> Atomic: ...
 
@@ -137,7 +137,7 @@ def atomic(
     using: str | None | _C = None,
     savepoint: bool = True,
     durable: bool = False,
-    isolation_level: str | None = None,
+    isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
 ) -> Atomic | _C:
     """

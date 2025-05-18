@@ -86,7 +86,7 @@ class Atomic(transaction.Atomic):
 
                 num_retries += 1
 
-        return inner  # type: ignore - we only care about accuracy for the outer function
+        return inner  # type: ignore - we only care about accuracy for the outer method
 
     def execute_set_isolation_level(self) -> None:
         with self.connection.cursor() as cursor:

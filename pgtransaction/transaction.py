@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from functools import cached_property, wraps
-from typing import Union
+from typing import Any, Callable, Final, TypeVar, overload
 
 import django
 from django.db import DEFAULT_DB_ALIAS, Error, transaction
@@ -7,19 +9,21 @@ from django.db.utils import NotSupportedError
 
 from pgtransaction import config
 
-READ_COMMITTED = "READ COMMITTED"
-REPEATABLE_READ = "REPEATABLE READ"
-SERIALIZABLE = "SERIALIZABLE"
+_C = TypeVar("_C", bound=Callable[..., Any])
+
+READ_COMMITTED: Final = "READ COMMITTED"
+REPEATABLE_READ: Final = "REPEATABLE READ"
+SERIALIZABLE: Final = "SERIALIZABLE"
 
 
 class Atomic(transaction.Atomic):
     def __init__(
         self,
-        using,
-        savepoint,
-        durable,
-        isolation_level,
-        retry,
+        using: str | None,
+        savepoint: bool,
+        durable: bool,
+        isolation_level: str | None,
+        retry: int | None,
     ):
         if django.VERSION >= (3, 2):
             super().__init__(using, savepoint, durable)
@@ -44,7 +48,7 @@ class Atomic(transaction.Atomic):
                 raise ValueError(f'Invalid isolation level "{self.isolation_level}"')
 
     @cached_property
-    def retry(self):
+    def retry(self) -> int:
         """
         Lazily load the configured retry value
 
@@ -58,15 +62,15 @@ class Atomic(transaction.Atomic):
         return self._retry if self._retry is not None else config.retry()
 
     @property
-    def connection(self):
+    def connection(self) -> Any:
         # Don't set this property on the class, otherwise it won't be thread safe
         return transaction.get_connection(self.using)
 
-    def __call__(self, func):
+    def __call__(self, func: _C) -> _C:
         self._used_as_context_manager = False
 
         @wraps(func)
-        def inner(*args, **kwds):
+        def inner(*args: Any, **kwds: Any) -> Any:
             num_retries = 0
 
             while True:  # pragma: no branch
@@ -82,13 +86,13 @@ class Atomic(transaction.Atomic):
 
                 num_retries += 1
 
-        return inner
+        return inner  # type: ignore - we only care about accuracy for the outer function
 
-    def execute_set_isolation_level(self):
+    def execute_set_isolation_level(self) -> None:
         with self.connection.cursor() as cursor:
             cursor.execute(f"SET TRANSACTION ISOLATION LEVEL {self.isolation_level.upper()}")
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         in_nested_atomic_block = self.connection.in_atomic_block
 
         if in_nested_atomic_block and self.retry:
@@ -115,13 +119,27 @@ class Atomic(transaction.Atomic):
             self.execute_set_isolation_level()
 
 
+@overload
+def atomic(using: _C) -> _C: ...
+
+
+@overload
 def atomic(
-    using: Union[str, None] = None,
+    using: str | None = None,
     savepoint: bool = True,
     durable: bool = False,
-    isolation_level: Union[str, None] = None,
-    retry: Union[int, None] = None,
-):
+    isolation_level: str | None = None,
+    retry: int | None = None,
+) -> Atomic: ...
+
+
+def atomic(
+    using: str | None | _C = None,
+    savepoint: bool = True,
+    durable: bool = False,
+    isolation_level: str | None = None,
+    retry: int | None = None,
+) -> Atomic | _C:
     """
     Extends `django.db.transaction.atomic` with PostgreSQL functionality.
 

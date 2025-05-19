@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
 from functools import cached_property, wraps
-from typing import Any, Callable, Final, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Final, Literal, TypeVar, overload
 
 import django
 from django.db import DEFAULT_DB_ALIAS, Error, transaction
@@ -18,6 +19,9 @@ READ_WRITE: Final = "READ WRITE"
 READ_ONLY: Final = "READ ONLY"
 DEFERRABLE: Final = "DEFERRABLE"
 NOT_DEFERRABLE: Final = "NOT DEFERRABLE"
+
+
+_LOGGER = logging.getLogger("pgtransaction")
 
 
 class Atomic(transaction.Atomic):
@@ -118,6 +122,25 @@ class Atomic(transaction.Atomic):
 
         return inner  # type: ignore - we only care about accuracy for the outer method
 
+    # `typing_extensions` is supported under `TYPE_CHECKING` even if not installed.
+
+    if TYPE_CHECKING:
+        from typing_extensions import deprecated
+
+        @deprecated(
+            "`execute_set_isolation_level` is deprecated and to be removed. "
+            "Use `execute_set_transaction_modes` instead."
+        )
+        def execute_set_isolation_level(self) -> None: ...
+    else:
+
+        def execute_set_isolation_level(self) -> None:
+            _LOGGER.warning(
+                "`execute_set_isolation_level` is deprecated. "
+                "Use `execute_set_transaction_modes` instead."
+            )
+            self.execute_set_transaction_modes()
+
     def execute_set_transaction_modes(self) -> None:
         with self.connection.cursor() as cursor:
             transaction_modes: list[str] = []
@@ -126,10 +149,10 @@ class Atomic(transaction.Atomic):
                 transaction_modes.append(f"ISOLATION LEVEL {self.isolation_level.upper()}")
 
             # Only set non-default values.
-            if self.read_mode:
+            if self.read_mode:  # pragma: no branch
                 transaction_modes.append(self.read_mode.upper())
 
-            if self.deferrable:
+            if self.deferrable:  # pragma: no branch
                 transaction_modes.append(self.deferrable.upper())
 
             if transaction_modes:

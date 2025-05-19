@@ -301,3 +301,64 @@ def test_concurrent_serialization_error():
     # We should have at least had three attempts. It's highly unlikely we would have four,
     # but the possibility exists.
     assert 3 <= len(calls) <= 4
+
+
+@pytest.mark.django_db(transaction=True)
+def test_atomic_read_only():
+    """Test that a read only transaction cannot write."""
+    with atomic(read_mode=pgtransaction.READ_ONLY):
+        trade = ddf.N(Trade)
+        # Should not be able to write.
+        with pytest.raises(InternalError):
+            if trade is not None:  # pragma: no branch - we always hit this branch
+                trade.price = 2
+                trade.save()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_atomic_deferrable_validation():
+    """Test validation of deferrable mode."""
+
+    # Should raise error if not used with SERIALIZABLE and READ ONLY
+    with pytest.raises(ValueError, match="DEFFERABLE transactions have no effect"):
+        with atomic(deferrable=pgtransaction.DEFERRABLE):  # type: ignore - also yields a type error.
+            pass
+
+    # Allowed with SERIALIZABLE and READ ONLY
+    with atomic(
+        isolation_level=pgtransaction.SERIALIZABLE,
+        read_mode=pgtransaction.READ_ONLY,
+        deferrable=pgtransaction.DEFERRABLE,
+    ):
+        pass
+
+
+@pytest.mark.django_db(transaction=True)
+def test_deferrable_read_only_behavior():
+    """Test behavior of deferrable read only transactions."""
+    import threading
+
+    trade = ddf.G(Trade, company="Company 1")
+
+    def modify_data() -> None:
+        with atomic():
+            trade_obj = Trade.objects.get(id=trade.id)
+            trade_obj.company = "Company 2"
+            trade_obj.save()
+
+    thread = threading.Thread(target=modify_data)
+
+    with atomic(
+        isolation_level=pgtransaction.SERIALIZABLE,
+        read_mode=pgtransaction.READ_ONLY,
+        deferrable=pgtransaction.DEFERRABLE,
+    ):
+        initial_read = Trade.objects.get(id=trade.id)
+        assert initial_read.company == "Company 1"
+
+        thread.start()
+        thread.join()
+
+        # Data should stay the same.
+        final_read = Trade.objects.get(id=trade.id)
+        assert final_read.company == "Company 1"

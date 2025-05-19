@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from functools import cached_property, wraps
 from typing import Any, Callable, Final, Literal, TypeVar, overload
 
@@ -14,6 +15,13 @@ _C = TypeVar("_C", bound=Callable[..., Any])
 READ_COMMITTED: Final = "READ COMMITTED"
 REPEATABLE_READ: Final = "REPEATABLE READ"
 SERIALIZABLE: Final = "SERIALIZABLE"
+READ_WRITE: Final = "READ WRITE"
+READ_ONLY: Final = "READ ONLY"
+DEFERRABLE: Final = "DEFERRABLE"
+NOT_DEFERRABLE: Final = "NOT DEFERRABLE"
+
+
+_LOGGER = logging.getLogger("pgtransaction")
 
 
 class Atomic(transaction.Atomic):
@@ -22,8 +30,11 @@ class Atomic(transaction.Atomic):
         using: str | None,
         savepoint: bool,
         durable: bool,
+        *,
         isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None,
         retry: int | None,
+        read_mode: Literal["READ WRITE", "READ ONLY"] | None,
+        deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None,
     ):
         if django.VERSION >= (3, 2):
             super().__init__(using, savepoint, durable)
@@ -31,21 +42,44 @@ class Atomic(transaction.Atomic):
             super().__init__(using, savepoint)
 
         self.isolation_level = isolation_level
+        self.read_mode = read_mode
+        self.deferrable = deferrable
         self._retry = retry
         self._used_as_context_manager = True
 
-        if self.isolation_level:  # pragma: no cover
+        if self.isolation_level or self.read_mode or self.deferrable:  # pragma: no cover
             if self.connection.vendor != "postgresql":
                 raise NotSupportedError(
                     f"pgtransaction.atomic cannot be used with {self.connection.vendor}"
                 )
 
-            if self.isolation_level.upper() not in (
+            if self.isolation_level and self.isolation_level.upper() not in (
                 READ_COMMITTED,
                 REPEATABLE_READ,
                 SERIALIZABLE,
             ):
                 raise ValueError(f'Invalid isolation level "{self.isolation_level}"')
+
+            if self.read_mode and self.read_mode.upper() not in (
+                READ_WRITE,
+                READ_ONLY,
+            ):
+                raise ValueError(f'Invalid read mode "{self.read_mode}"')
+
+            if self.deferrable and self.deferrable.upper() not in (
+                DEFERRABLE,
+                NOT_DEFERRABLE,
+            ):
+                raise ValueError(f'Invalid deferrable mode "{self.deferrable}"')
+
+            if self.deferrable == DEFERRABLE and not (
+                self.isolation_level == SERIALIZABLE and self.read_mode == READ_ONLY
+            ):
+                raise ValueError(
+                    "DEFFERABLE transactions have no effect unless "
+                    "SERIALIZABLE isolation level and "
+                    "READ ONLY mode are used."
+                )
 
     @cached_property
     def retry(self) -> int:
@@ -88,9 +122,22 @@ class Atomic(transaction.Atomic):
 
         return inner  # type: ignore - we only care about accuracy for the outer method
 
-    def execute_set_isolation_level(self) -> None:
+    def execute_set_transaction_modes(self) -> None:
         with self.connection.cursor() as cursor:
-            cursor.execute(f"SET TRANSACTION ISOLATION LEVEL {self.isolation_level.upper()}")
+            transaction_modes: list[str] = []
+
+            if self.isolation_level:
+                transaction_modes.append(f"ISOLATION LEVEL {self.isolation_level.upper()}")
+
+            # Only set non-default values.
+            if self.read_mode:  # pragma: no branch
+                transaction_modes.append(self.read_mode.upper())
+
+            if self.deferrable:  # pragma: no branch
+                transaction_modes.append(self.deferrable.upper())
+
+            if transaction_modes:  # pragma: no branch
+                cursor.execute(f"SET TRANSACTION {' '.join(transaction_modes)}")
 
     def __enter__(self) -> None:
         in_nested_atomic_block = self.connection.in_atomic_block
@@ -104,23 +151,40 @@ class Atomic(transaction.Atomic):
                 "when retry is non-zero. Use as a decorator instead."
             )
 
-        # If we're already in a nested atomic block, try setting the isolation
-        # level before any check points are made when entering the atomic decorator.
-        # This helps avoid errors and allow people to still nest isolation levels
+        # If we're already in a nested atomic block, try setting the transaction modes
+        # before any check points are made when entering the atomic decorator.
+        # This helps avoid errors and allow people to still nest transaction modes
         # when applicable
-        if in_nested_atomic_block and self.isolation_level:
-            self.execute_set_isolation_level()
+        if in_nested_atomic_block and (self.isolation_level or self.read_mode or self.deferrable):
+            self.execute_set_transaction_modes()
 
         super().__enter__()
 
-        # If we weren't in a nested atomic block, set the isolation level for the first
+        # If we weren't in a nested atomic block, set the transaction modes for the first
         # time after the transaction has been started
-        if not in_nested_atomic_block and self.isolation_level:
-            self.execute_set_isolation_level()
+        if not in_nested_atomic_block and (
+            self.isolation_level or self.read_mode or self.deferrable
+        ):
+            self.execute_set_transaction_modes()
 
 
 @overload
 def atomic(using: _C) -> _C: ...
+
+
+# Deferrable only has effect when used with SERIALIZABLE isolation level
+# and READ ONLY mode.
+@overload
+def atomic(
+    using: str | None = None,
+    savepoint: bool = True,
+    durable: bool = False,
+    *,
+    isolation_level: Literal["SERIALIZABLE"] = ...,
+    retry: int | None = None,
+    read_mode: Literal["READ ONLY"] | None = None,
+    deferrable: Literal["DEFERRABLE"] | None = None,
+) -> Atomic: ...
 
 
 @overload
@@ -128,8 +192,11 @@ def atomic(
     using: str | None = None,
     savepoint: bool = True,
     durable: bool = False,
+    *,
     isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
+    read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
+    deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None = None,
 ) -> Atomic: ...
 
 
@@ -137,15 +204,19 @@ def atomic(
     using: str | None | _C = None,
     savepoint: bool = True,
     durable: bool = False,
+    *,
     isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
+    read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
+    deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None = None,
 ) -> Atomic | _C:
     """
     Extends `django.db.transaction.atomic` with PostgreSQL functionality.
 
-    Allows one to dynamically set the isolation level when opening a transaction,
-    as well as specifying a retry policy for when an operation in that transaction results
-    in a Postgres locking exception.
+    Allows one to dynamically set transaction characteristics when opening a transaction,
+    including isolation level, read mode, and deferrability. Also supports specifying
+    a retry policy for when an operation in that transaction results in a Postgres
+    locking exception.
 
     Args:
         using: The database to use.
@@ -169,20 +240,45 @@ def atomic(
             `settings.PGTRANSACTION_RETRY`. Note that it is not possible
             to specify a non-zero value of retry when [pgtransaction.atomic][]
             is used in a nested atomic block or when used as a context manager.
+        read_mode: The read mode for the transaction. Must be one of
+            `pgtransaction.READ_WRITE` or `pgtransaction.READ_ONLY`.
+        deferrable: Whether the transaction is deferrable. Must be one of
+            `pgtransaction.DEFERRABLE` or `pgtransaction.NOT_DEFERRABLE`.
+            DEFERRABLE only has effect when used with SERIALIZABLE isolation level
+            and READ ONLY mode. In this case, it allows the transaction to be
+            deferred until it can be executed without causing serialization
+            anomalies.
 
     Example:
         Since [pgtransaction.atomic][] inherits from `django.db.transaction.atomic`, it
         can be used in exactly the same manner. Additionally, when used as a
-        context manager or a decorator, one can use it to specify the
-        isolation level of the new transaction. For example:
+        context manager or a decorator, one can use it to specify transaction
+        characteristics. For example:
 
             import pgtransaction
 
             with pgtransaction.atomic(isolation_level=pgtransaction.REPEATABLE_READ):
-                # Isolation level is now "REPEATABLE READ" for the duration of the "with" block.
+                # Transaction is now REPEATABLE READ for the duration of the block
                 ...
 
-        Note that setting `isolation_level` in a nested atomic block is permitted as long
+            # Use READ ONLY mode with SERIALIZABLE isolation
+            with pgtransaction.atomic(
+                isolation_level=pgtransaction.SERIALIZABLE,
+                read_mode=pgtransaction.READ_ONLY
+            ):
+                # Transaction is now SERIALIZABLE and READ ONLY
+                ...
+
+            # Use DEFERRABLE with SERIALIZABLE and READ ONLY
+            with pgtransaction.atomic(
+                isolation_level=pgtransaction.SERIALIZABLE,
+                read_mode=pgtransaction.READ_ONLY,
+                deferrable=pgtransaction.DEFERRABLE
+            ):
+                # Transaction is now SERIALIZABLE, READ ONLY, and DEFERRABLE
+                ...
+
+        Note that setting transaction modes in a nested atomic block is permitted as long
         as no queries have been made.
 
     Example:
@@ -206,17 +302,21 @@ def atomic(
     # Copies structure of django.db.transaction.atomic
     if callable(using):
         return Atomic(
-            DEFAULT_DB_ALIAS,
-            savepoint,
-            durable,
-            isolation_level,
-            retry,
+            using=DEFAULT_DB_ALIAS,
+            savepoint=savepoint,
+            durable=durable,
+            isolation_level=isolation_level,
+            retry=retry,
+            read_mode=read_mode,
+            deferrable=deferrable,
         )(using)
     else:
         return Atomic(
-            using,
-            savepoint,
-            durable,
-            isolation_level,
-            retry,
+            using=using,
+            savepoint=savepoint,
+            durable=durable,
+            isolation_level=isolation_level,
+            retry=retry,
+            read_mode=read_mode,
+            deferrable=deferrable,
         )

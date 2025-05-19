@@ -68,6 +68,15 @@ class Atomic(transaction.Atomic):
             ):
                 raise ValueError(f'Invalid deferrable mode "{self.deferrable}"')
 
+            if self.deferrable == DEFERRABLE and not (
+                self.isolation_level == SERIALIZABLE and self.read_mode == READ_ONLY
+            ):
+                raise ValueError(
+                    "DEFFERABLE transactions have no effect unless "
+                    "SERIALIZABLE isolation level and "
+                    "READ ONLY mode are used."
+                )
+
     @cached_property
     def retry(self) -> int:
         """
@@ -286,11 +295,3 @@ def atomic(
             read_mode=read_mode,
             deferrable=deferrable,
         )
-
-
-from django.db import transaction
-
-
-@transaction.atomic
-def test():
-    pass

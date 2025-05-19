@@ -30,9 +30,9 @@ class Atomic(transaction.Atomic):
         using: str | None,
         savepoint: bool,
         durable: bool,
+        *,
         isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None,
         retry: int | None,
-        *,
         read_mode: Literal["READ WRITE", "READ ONLY"] | None,
         deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None,
     ):
@@ -122,25 +122,6 @@ class Atomic(transaction.Atomic):
 
         return inner  # type: ignore - we only care about accuracy for the outer method
 
-    # `typing_extensions` is supported under `TYPE_CHECKING` even if not installed.
-
-    if TYPE_CHECKING:
-        from typing_extensions import deprecated
-
-        @deprecated(
-            "`execute_set_isolation_level` is deprecated and to be removed. "
-            "Use `execute_set_transaction_modes` instead."
-        )
-        def execute_set_isolation_level(self) -> None: ...
-    else:
-
-        def execute_set_isolation_level(self) -> None:  # pragma: no cover
-            _LOGGER.warning(
-                "`execute_set_isolation_level` is deprecated. "
-                "Use `execute_set_transaction_modes` instead."
-            )
-            self.execute_set_transaction_modes()
-
     def execute_set_transaction_modes(self) -> None:
         with self.connection.cursor() as cursor:
             transaction_modes: list[str] = []
@@ -198,9 +179,9 @@ def atomic(
     using: str | None = None,
     savepoint: bool = True,
     durable: bool = False,
+    *,
     isolation_level: Literal["SERIALIZABLE"] = ...,
     retry: int | None = None,
-    *,
     read_mode: Literal["READ ONLY"] | None = None,
     deferrable: Literal["DEFERRABLE"] | None = None,
 ) -> Atomic: ...
@@ -211,9 +192,9 @@ def atomic(
     using: str | None = None,
     savepoint: bool = True,
     durable: bool = False,
+    *,
     isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
-    *,
     read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
     deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None = None,
 ) -> Atomic: ...
@@ -223,9 +204,9 @@ def atomic(
     using: str | None | _C = None,
     savepoint: bool = True,
     durable: bool = False,
+    *,
     isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
-    *,
     read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
     deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None = None,
 ) -> Atomic | _C:

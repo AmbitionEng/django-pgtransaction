@@ -310,7 +310,7 @@ def test_atomic_read_only():
         trade = ddf.N(Trade)
         # Should not be able to write.
         with pytest.raises(InternalError):
-            if trade is not None:
+            if trade is not None:  # pragma: no branch - we always hit this branch
                 trade.price = 2
                 trade.save()
 

@@ -27,9 +27,10 @@ class Atomic(transaction.Atomic):
         savepoint: bool,
         durable: bool,
         isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None,
+        retry: int | None,
+        *,
         read_mode: Literal["READ WRITE", "READ ONLY"] | None,
         deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None,
-        retry: int | None,
     ):
         if django.VERSION >= (3, 2):
             super().__init__(using, savepoint, durable)

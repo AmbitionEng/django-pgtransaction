@@ -158,16 +158,31 @@ class Atomic(transaction.Atomic):
 def atomic(using: _C) -> _C: ...
 
 
+# Deferrable only has effect when used with SERIALIZABLE isolation level
+# and READ ONLY mode.
 @overload
 def atomic(
     using: str | None = None,
+    *,
     savepoint: bool = True,
     durable: bool = False,
-    isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
+    isolation_level: Literal["SERIALIZABLE"],
+    read_mode: Literal["READ ONLY"] | None = None,
+    deferrable: Literal["DEFERRABLE"] | None = None,
+) -> Atomic: ...
+
+
+@overload
+def atomic(
+    using: str | None = None,
     *,
+    savepoint: bool = True,
+    durable: bool = False,
+    isolation_level: Literal["READ COMMITTED", "REPEATABLE READ"] | None = None,
+    retry: int | None = None,
     read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
-    deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None = None,
+    deferrable: Literal["NOT DEFERRABLE"] | None = None,
 ) -> Atomic: ...
 
 
@@ -202,12 +217,6 @@ def atomic(
             as anything but None when using [pgtransaction.atomic][]
             is used as a nested atomic block - in that scenario,
             the isolation level is inherited from the parent transaction.
-        read_mode: The read mode for the transaction. Must be one of
-            `pgtransaction.READ_WRITE` or `pgtransaction.READ_ONLY`.
-        deferrable: Whether the transaction is deferrable. Must be one of
-            `pgtransaction.DEFERRABLE` or `pgtransaction.NOT_DEFERRABLE`.
-            Only has effect when used with SERIALIZABLE isolation level
-            and READ ONLY mode.
         retry: An integer specifying the number of attempts
             we want to retry the entire transaction upon encountering
             the settings-specified psycogp2 exceptions. If passed in as
@@ -216,6 +225,12 @@ def atomic(
             `settings.PGTRANSACTION_RETRY`. Note that it is not possible
             to specify a non-zero value of retry when [pgtransaction.atomic][]
             is used in a nested atomic block or when used as a context manager.
+        read_mode: The read mode for the transaction. Must be one of
+            `pgtransaction.READ_WRITE` or `pgtransaction.READ_ONLY`.
+        deferrable: Whether the transaction is deferrable. Must be one of
+            `pgtransaction.DEFERRABLE` or `pgtransaction.NOT_DEFERRABLE`.
+            Only has effect when used with SERIALIZABLE isolation level
+            and READ ONLY mode.
 
     Example:
         Since [pgtransaction.atomic][] inherits from `django.db.transaction.atomic`, it

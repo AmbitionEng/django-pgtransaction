@@ -307,9 +307,7 @@ def test_concurrent_serialization_error():
 def test_atomic_read_only():
     """Test that a read only transaction cannot write."""
     with atomic(read_mode=pgtransaction.READ_ONLY):
-        trade = ddf.G(Trade)
-        assert trade.id is not None
-
+        trade = ddf.N(Trade)
         # Should not be able to write.
         with pytest.raises(InternalError):
             if trade is not None:

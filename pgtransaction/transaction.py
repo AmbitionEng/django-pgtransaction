@@ -276,7 +276,6 @@ def atomic(
 
             import pgtransaction
 
-            # Use REPEATABLE READ isolation level (defaults to READ WRITE mode)
             with pgtransaction.atomic(isolation_level=pgtransaction.REPEATABLE_READ):
                 # Transaction is now REPEATABLE READ for the duration of the block
                 ...

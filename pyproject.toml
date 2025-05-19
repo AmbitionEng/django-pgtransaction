@@ -27,7 +27,7 @@ packages = [
 exclude = [
   "*/tests/"
 ]
-version = "1.5.2"
+version = "1.5.3"
 description = "A context manager/decorator which extends Django's atomic function with the ability to set isolation level and retries for a given transaction."
 authors = ["Paul Gilmartin", "Wes Kendall"]
 classifiers = [

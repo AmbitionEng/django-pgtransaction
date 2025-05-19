@@ -125,10 +125,11 @@ class Atomic(transaction.Atomic):
             if self.isolation_level:
                 transaction_modes.append(f"ISOLATION LEVEL {self.isolation_level.upper()}")
 
-            if self.read_mode:
+            # Only set non-default values.
+            if self.read_mode and self.read_mode.upper() != READ_WRITE:
                 transaction_modes.append(self.read_mode.upper())
 
-            if self.deferrable:
+            if self.deferrable and self.deferrable.upper() != NOT_DEFERRABLE:
                 transaction_modes.append(self.deferrable.upper())
 
             if transaction_modes:
@@ -177,8 +178,8 @@ def atomic(
     isolation_level: Literal["SERIALIZABLE"] = ...,
     retry: int | None = None,
     *,
-    read_mode: Literal["READ ONLY"] | None = None,
-    deferrable: Literal["DEFERRABLE"] | None = None,
+    read_mode: Literal["READ ONLY"] = "READ ONLY",
+    deferrable: Literal["DEFERRABLE"] = "DEFERRABLE",
 ) -> Atomic: ...
 
 
@@ -187,11 +188,11 @@ def atomic(
     using: str | None = None,
     savepoint: bool = True,
     durable: bool = False,
-    isolation_level: Literal["READ COMMITTED", "REPEATABLE READ"] | None = None,
+    isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
     *,
-    read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
-    deferrable: Literal["NOT DEFERRABLE"] | None = None,
+    read_mode: Literal["READ WRITE", "READ ONLY"] = "READ WRITE",
+    deferrable: Literal["NOT DEFERRABLE"] = "NOT DEFERRABLE",
 ) -> Atomic: ...
 
 
@@ -202,8 +203,8 @@ def atomic(
     isolation_level: Literal["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] | None = None,
     retry: int | None = None,
     *,
-    read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
-    deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] | None = None,
+    read_mode: Literal["READ WRITE", "READ ONLY"] = "READ WRITE",
+    deferrable: Literal["DEFERRABLE", "NOT DEFERRABLE"] = "NOT DEFERRABLE",
 ) -> Atomic | _C:
     """
     Extends `django.db.transaction.atomic` with PostgreSQL functionality.
@@ -236,10 +237,12 @@ def atomic(
             is used in a nested atomic block or when used as a context manager.
         read_mode: The read mode for the transaction. Must be one of
             `pgtransaction.READ_WRITE` or `pgtransaction.READ_ONLY`.
+            Default is `pgtransaction.READ_WRITE` (the PostgreSQL default).
         deferrable: Whether the transaction is deferrable. Must be one of
             `pgtransaction.DEFERRABLE` or `pgtransaction.NOT_DEFERRABLE`.
             Only has effect when used with SERIALIZABLE isolation level
-            and READ ONLY mode.
+            and READ ONLY mode. Default is `pgtransaction.NOT_DEFERRABLE`
+            (the PostgreSQL default).
 
     Example:
         Since [pgtransaction.atomic][] inherits from `django.db.transaction.atomic`, it

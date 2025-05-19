@@ -134,7 +134,7 @@ class Atomic(transaction.Atomic):
         def execute_set_isolation_level(self) -> None: ...
     else:
 
-        def execute_set_isolation_level(self) -> None:
+        def execute_set_isolation_level(self) -> None:  # pragma: no cover
             _LOGGER.warning(
                 "`execute_set_isolation_level` is deprecated. "
                 "Use `execute_set_transaction_modes` instead."
@@ -155,7 +155,7 @@ class Atomic(transaction.Atomic):
             if self.deferrable:  # pragma: no branch
                 transaction_modes.append(self.deferrable.upper())
 
-            if transaction_modes:
+            if transaction_modes:  # pragma: no branch
                 cursor.execute(f"SET TRANSACTION {' '.join(transaction_modes)}")
 
     def __enter__(self) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from functools import cached_property, wraps
-from typing import TYPE_CHECKING, Any, Callable, Final, Literal, TypeVar, overload
+from typing import Any, Callable, Final, Literal, TypeVar, overload
 
 import django
 from django.db import DEFAULT_DB_ALIAS, Error, transaction

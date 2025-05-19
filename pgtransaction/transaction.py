@@ -163,11 +163,11 @@ def atomic(using: _C) -> _C: ...
 @overload
 def atomic(
     using: str | None = None,
-    *,
     savepoint: bool = True,
     durable: bool = False,
+    isolation_level: Literal["SERIALIZABLE"] = ...,
     retry: int | None = None,
-    isolation_level: Literal["SERIALIZABLE"],
+    *,
     read_mode: Literal["READ ONLY"] | None = None,
     deferrable: Literal["DEFERRABLE"] | None = None,
 ) -> Atomic: ...
@@ -176,11 +176,11 @@ def atomic(
 @overload
 def atomic(
     using: str | None = None,
-    *,
     savepoint: bool = True,
     durable: bool = False,
     isolation_level: Literal["READ COMMITTED", "REPEATABLE READ"] | None = None,
     retry: int | None = None,
+    *,
     read_mode: Literal["READ WRITE", "READ ONLY"] | None = None,
     deferrable: Literal["NOT DEFERRABLE"] | None = None,
 ) -> Atomic: ...
@@ -286,3 +286,11 @@ def atomic(
             read_mode=read_mode,
             deferrable=deferrable,
         )
+
+
+from django.db import transaction
+
+
+@transaction.atomic
+def test():
+    pass

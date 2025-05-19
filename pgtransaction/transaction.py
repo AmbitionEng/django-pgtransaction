@@ -209,9 +209,10 @@ def atomic(
     """
     Extends `django.db.transaction.atomic` with PostgreSQL functionality.
 
-    Allows one to dynamically set the isolation level when opening a transaction,
-    as well as specifying a retry policy for when an operation in that transaction results
-    in a Postgres locking exception.
+    Allows one to dynamically set transaction characteristics when opening a transaction,
+    including isolation level, read mode, and deferrability. Also supports specifying
+    a retry policy for when an operation in that transaction results in a Postgres
+    locking exception.
 
     Args:
         using: The database to use.
@@ -238,22 +239,44 @@ def atomic(
         read_mode: The read mode for the transaction. Must be one of
             `pgtransaction.READ_WRITE` or `pgtransaction.READ_ONLY`.
             Default is `pgtransaction.READ_WRITE` (the PostgreSQL default).
+            READ WRITE allows both reads and writes, while READ ONLY
+            prevents any modifications to the database.
         deferrable: Whether the transaction is deferrable. Must be one of
             `pgtransaction.DEFERRABLE` or `pgtransaction.NOT_DEFERRABLE`.
-            Only has effect when used with SERIALIZABLE isolation level
-            and READ ONLY mode. Default is `pgtransaction.NOT_DEFERRABLE`
-            (the PostgreSQL default).
+            Default is `pgtransaction.NOT_DEFERRABLE` (the PostgreSQL default).
+            DEFERRABLE only has effect when used with SERIALIZABLE isolation level
+            and READ ONLY mode. In this case, it allows the transaction to be
+            deferred until it can be executed without causing serialization
+            anomalies.
 
     Example:
         Since [pgtransaction.atomic][] inherits from `django.db.transaction.atomic`, it
         can be used in exactly the same manner. Additionally, when used as a
-        context manager or a decorator, one can use it to specify the
-        isolation level of the new transaction. For example:
+        context manager or a decorator, one can use it to specify transaction
+        characteristics. For example:
 
             import pgtransaction
 
+            # Use REPEATABLE READ isolation level (defaults to READ WRITE mode)
             with pgtransaction.atomic(isolation_level=pgtransaction.REPEATABLE_READ):
-                # Isolation level is now "REPEATABLE READ" for the duration of the "with" block.
+                # Transaction is now REPEATABLE READ for the duration of the block
+                ...
+
+            # Use READ ONLY mode with SERIALIZABLE isolation
+            with pgtransaction.atomic(
+                isolation_level=pgtransaction.SERIALIZABLE,
+                read_mode=pgtransaction.READ_ONLY
+            ):
+                # Transaction is now SERIALIZABLE and READ ONLY
+                ...
+
+            # Use DEFERRABLE with SERIALIZABLE and READ ONLY
+            with pgtransaction.atomic(
+                isolation_level=pgtransaction.SERIALIZABLE,
+                read_mode=pgtransaction.READ_ONLY,
+                deferrable=pgtransaction.DEFERRABLE
+            ):
+                # Transaction is now SERIALIZABLE, READ ONLY, and DEFERRABLE
                 ...
 
         Note that setting transaction modes in a nested atomic block is permitted as long

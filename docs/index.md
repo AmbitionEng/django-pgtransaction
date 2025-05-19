@@ -2,11 +2,17 @@
 
 django-pgtransaction offers a drop-in replacement for the default `django.db.transaction` module which, when used on top of a PostgreSQL database, extends the functionality of that module with Postgres-specific features.
 
-At present, django-pgtransaction offers an extension of the `django.db.transaction.atomic` context manager/decorator which allows one to dynamically set the [isolation level](https://www.postgresql.org/docs/current/transaction-iso.html) when opening a transaction, as well as specifying a retry policy for when an operation in that transaction results in a Postgres locking exception. See [module docs](module.md) and the quickstart below for examples.
+At present, django-pgtransaction offers an extension of the `django.db.transaction.atomic` context manager/decorator which allows one to dynamically set [transaction characteristics](https://www.postgresql.org/docs/current/sql-set-transaction.html) including:
+- [Isolation level](https://www.postgresql.org/docs/current/transaction-iso.html)
+- Read mode (READ WRITE/READ ONLY)
+- Deferrability (DEFERRABLE/NOT DEFERRABLE)
+- Retry policy for Postgres locking exceptions
+
+See [module docs](module.md) and the quickstart below for examples.
 
 ## Quickstart
 
-After [installation](installation.md), set the isolation level of a transaction by using [pgtransaction.atomic][]:
+After [installation](installation.md), set transaction characteristics using [pgtransaction.atomic][]:
 
 ```python
 import pgtransaction
@@ -16,6 +22,31 @@ with pgtransaction.atomic(isolation_level=pgtransaction.SERIALIZABLE):
 ```
 
 There are three isolation levels: `pgtransaction.READ_COMMITTED`, `pgtransaction.REPEATABLE_READ`, and `pgtransaction.SERIALIZABLE`. By default it inherits the parent isolation level, which is Django's default of "READ COMMITTED".
+
+You can also set the read mode and deferrability:
+
+```python
+# Use READ ONLY mode
+with pgtransaction.atomic(
+    isolation_level=pgtransaction.SERIALIZABLE,
+    read_mode=pgtransaction.READ_ONLY
+):
+    # Can only read, not write
+    ...
+
+# Use DEFERRABLE with SERIALIZABLE and READ ONLY
+with pgtransaction.atomic(
+    isolation_level=pgtransaction.SERIALIZABLE,
+    read_mode=pgtransaction.READ_ONLY,
+    deferrable=pgtransaction.DEFERRABLE
+):
+    # Transaction is deferred until it can be executed without serialization anomalies
+    ...
+```
+
+Postgres defaults are followed:
+- Read mode is `pgtransaction.READ_WRITE` (allows both reads and writes)
+- Deferrability is `pgtransaction.NOT_DEFERRABLE`
 
 When using stricter isolation levels like `pgtransaction.SERIALIZABLE`, Postgres will throw serialization errors upon concurrent updates to rows. Use the `retry` argument with the decorator to retry these failures:
 
@@ -33,8 +64,9 @@ By default, retries are only performed when `psycopg.errors.SerializationError` 
 
 [pgtransaction.atomic][] can be nested, but keep the following in mind:
 
-1. The isolation level cannot be changed once a query has been performed.
+1. Transaction characteristics cannot be changed once a query has been performed.
 2. The retry argument only works on the outermost invocation as a decorator, otherwise `RuntimeError` is raised.
+3. DEFERRABLE only has effect when used with SERIALIZABLE isolation level and READ ONLY mode.
 
 ## Compatibility
 

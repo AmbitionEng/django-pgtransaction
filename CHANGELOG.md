@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3 (2025-05-18)
+
+#### Changes
+
+  - Improve and correct typing by [@max-muoto](https://github.com/max-muoto) in [#19](https://github.com/AmbitionEng/django-pgtransaction/pull/19).
+
 ## 1.5.2 (2025-01-10)
 
 #### Fixes

@@ -253,21 +253,21 @@ def atomic(
     # Copies structure of django.db.transaction.atomic
     if callable(using):
         return Atomic(
-            DEFAULT_DB_ALIAS,
-            savepoint,
-            durable,
-            isolation_level,
-            read_mode,
-            deferrable,
-            retry,
+            using=DEFAULT_DB_ALIAS,
+            savepoint=savepoint,
+            durable=durable,
+            isolation_level=isolation_level,
+            retry=retry,
+            read_mode=read_mode,
+            deferrable=deferrable,
         )(using)
     else:
         return Atomic(
-            using,
-            savepoint,
-            durable,
-            isolation_level,
-            read_mode,
-            deferrable,
-            retry,
+            using=using,
+            savepoint=savepoint,
+            durable=durable,
+            isolation_level=isolation_level,
+            retry=retry,
+            read_mode=read_mode,
+            deferrable=deferrable,
         )

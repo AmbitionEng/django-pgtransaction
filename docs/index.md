@@ -12,7 +12,7 @@ See [module docs](module.md) and the quickstart below for examples.
 
 ## Quickstart
 
-After [installation](installation.md), use [pgtransaction.atomic][] to control transaction characteristics:
+After [installation](installation.md), set transaction characteristics using [pgtransaction.atomic][]:
 
 ### Isolation Levels
 

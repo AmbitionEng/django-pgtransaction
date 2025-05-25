@@ -69,8 +69,13 @@ def do_queries():
 
 By default, retries are only performed when `psycopg.errors.SerializationError` or `psycopg.errors.DeadlockDetected` errors are raised. Configure retried psycopg errors with `settings.PGTRANSACTION_RETRY_EXCEPTIONS`. You can set a default retry amount with `settings.PGTRANSACTION_RETRY`.
 
+### Nested Usage
+
+[pgtransaction.atomic][] can be nested, but keep the following in mind:
+
 1. Isolation mode cannot be changed once a query has been performed.
-2. The retry argument only works on the outermost invocation as a decorator, otherwise `RuntimeError` is raised.
+2. Read-write mode can not be changed to from within a read only block.
+3. The retry argument only works on the outermost invocation as a decorator, otherwise `RuntimeError` is raised.
 
 ## Compatibility
 

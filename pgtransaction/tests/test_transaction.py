@@ -100,6 +100,34 @@ def test_atomic_nested_isolation_levels():
                     pass
 
 
+@pytest.mark.django_db(transaction=True)
+def test_atomic_nested_read_modes():
+    # This is permitted because no statements have been issued
+    with transaction.atomic():
+        with atomic(read_mode=pgtransaction.READ_ONLY):
+            pass
+
+    # You can nest READ_ONLY inside READ_WRITE after issuing statements
+    with atomic(read_mode=pgtransaction.READ_WRITE):
+        ddf.G(Trade)
+        with atomic(read_mode=pgtransaction.READ_ONLY):
+            # Can read in nested read-only transaction
+            Trade.objects.count()
+
+    # This is permitted - same read modes
+    with atomic(read_mode=pgtransaction.READ_WRITE):
+        ddf.G(Trade)
+        with atomic(read_mode=pgtransaction.READ_WRITE):
+            ddf.G(Trade)
+
+    # You cannot set READ WRITE mode after any query has been issued
+    with pytest.raises(InternalError):
+        with atomic(read_mode=pgtransaction.READ_ONLY):
+            Trade.objects.count()
+            with atomic(read_mode=pgtransaction.READ_WRITE):
+                pass
+
+
 @pytest.mark.django_db()
 def test_atomic_with_nested_atomic():
     with atomic(isolation_level="REPEATABLE READ"):

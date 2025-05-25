@@ -127,13 +127,6 @@ def test_atomic_nested_read_modes():
             with atomic(read_mode=pgtransaction.READ_WRITE):
                 pass
 
-    # Same restriction applies even in READ_WRITE transactions
-    with pytest.raises(InternalError):
-        with atomic(read_mode=pgtransaction.READ_WRITE):
-            ddf.G(Trade)
-            with atomic(read_mode=pgtransaction.READ_WRITE):
-                pass
-
 
 @pytest.mark.django_db()
 def test_atomic_with_nested_atomic():

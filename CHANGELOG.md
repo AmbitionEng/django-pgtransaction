@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.0 (2025-05-24)
+
+#### Api-Break
+
+* Support deferrable and read-only transactions by [@max-muoto](https://github.com/max-muoto) in [#21](https://github.com/AmbitionEng/django-pgtransaction/pull/21).
+  * Breaking changes:
+    * `execute_set_isolation_level` was removed in favor of `execute_set_transaction_modes`.
+    * All arguments that aren't present in the Django implementation of `transaction.atomic` are now keyword-only.
+
 ## 1.5.3 (2025-05-18)
 
 #### Changes

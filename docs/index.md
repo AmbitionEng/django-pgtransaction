@@ -14,39 +14,46 @@ See [module docs](module.md) and the quickstart below for examples.
 
 After [installation](installation.md), set transaction characteristics using [pgtransaction.atomic][]:
 
+### Isolation Levels
+
+Set the isolation level for specific consistency guarantees:
+
 ```python
 import pgtransaction
 
 with pgtransaction.atomic(isolation_level=pgtransaction.SERIALIZABLE):
-    # Do queries...
+    # Do queries with SERIALIZABLE isolation...
 ```
 
 There are three isolation levels: `pgtransaction.READ_COMMITTED`, `pgtransaction.REPEATABLE_READ`, and `pgtransaction.SERIALIZABLE`. By default it inherits the parent isolation level, which is Django's default of "READ COMMITTED".
 
-You can also set the read mode and deferrability:
+### Read-Only Transactions
+
+Read-only mode can be used queries that don't modify data:
 
 ```python
-# Use READ ONLY mode
-with pgtransaction.atomic(
-    isolation_level=pgtransaction.SERIALIZABLE,
-    read_mode=pgtransaction.READ_ONLY
-):
+with pgtransaction.atomic(read_mode=pgtransaction.READ_ONLY):
     # Can only read, not write
-    ...
+    results = MyModel.objects.all()
+```
 
-# Use DEFERRABLE with SERIALIZABLE and READ ONLY
+### Deferrable Transactions
+
+Prevent serialization failures for long-running queries by blocking:
+
+```python
 with pgtransaction.atomic(
     isolation_level=pgtransaction.SERIALIZABLE,
     read_mode=pgtransaction.READ_ONLY,
     deferrable=pgtransaction.DEFERRABLE
 ):
-    # Transaction is deferred until it can be executed without serialization anomalies
-    ...
+    # Long-running read-only query that won't cause serialization conflicts
+    analytics_data = expensive_query()
 ```
 
-Postgres defaults are followed:
-- Read mode is `pgtransaction.READ_WRITE` (allows both reads and writes)
-- Deferrability is `pgtransaction.NOT_DEFERRABLE`
+Note: `DEFERRABLE` only works with `SERIALIZABLE` isolation level and `READ_ONLY` mode.
+
+### Retries for Concurrent Updates
 
 When using stricter isolation levels like `pgtransaction.SERIALIZABLE`, Postgres will throw serialization errors upon concurrent updates to rows. Use the `retry` argument with the decorator to retry these failures:
 
@@ -62,11 +69,13 @@ def do_queries():
 
 By default, retries are only performed when `psycopg.errors.SerializationError` or `psycopg.errors.DeadlockDetected` errors are raised. Configure retried psycopg errors with `settings.PGTRANSACTION_RETRY_EXCEPTIONS`. You can set a default retry amount with `settings.PGTRANSACTION_RETRY`.
 
+### Nested Usage
+
 [pgtransaction.atomic][] can be nested, but keep the following in mind:
 
-1. Transaction characteristics cannot be changed once a query has been performed.
-2. The retry argument only works on the outermost invocation as a decorator, otherwise `RuntimeError` is raised.
-3. DEFERRABLE only has effect when used with SERIALIZABLE isolation level and READ ONLY mode.
+1. Isolation mode cannot be changed once a query has been performed.
+2. Read-write mode can not be changed to from within a read only block.
+3. The retry argument only works on the outermost invocation as a decorator, otherwise `RuntimeError` is raised.
 
 ## Compatibility
 

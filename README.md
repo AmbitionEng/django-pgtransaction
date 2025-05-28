@@ -79,7 +79,7 @@ By default, retries are only performed when `psycopg.errors.SerializationError` 
 
 `django-pgtransaction` is compatible with Python 3.9 - 3.13, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 13 - 17.
 
-## Other Reading
+## Documentation
 
 Check out the [Postgres docs](https://www.postgresql.org/docs/current/transaction-iso.html) to learn about transaction isolation in Postgres. 
 

@@ -4,4 +4,4 @@ Welcome to the docs for `django-pgtransaction`! It doesn't appear that the autho
 
 ## Compatibility
 
-`django-pgtransaction` is compatible with Python 3.9 - 3.13, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 13 - 17.
+`django-pgtransaction` is compatible with Python 3.10 - 3.14, Django 4.2 - 6.0, Psycopg 2 - 3, and Postgres 14 - 18.

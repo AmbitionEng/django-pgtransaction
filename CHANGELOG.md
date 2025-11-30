@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0 (2025-11-30)
+
+#### Changes
+
+  - Drop Python 3.9 support, add Python 3.14 support, add Postgres 18 support, add Django 6.0 support by [@wesleykendall](https://github.com/wesleykendall) in [#24](https://github.com/AmbitionEng/django-pgtransaction/pull/24)
+
 ## 2.0.0 (2025-05-24)
 
 #### Api-Break

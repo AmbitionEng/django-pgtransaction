@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from functools import cached_property, wraps
+from functools import wraps
 from typing import Any, Callable, Final, Literal, TypeVar, overload
 
 import django
@@ -81,17 +81,13 @@ class Atomic(transaction.Atomic):
                     "READ ONLY mode are used."
                 )
 
-    @cached_property
+    @property
     def retry(self) -> int:
         """
         Lazily load the configured retry value
 
         We do this so that atomic decorators can be instantiated without an
         implicit dependency on Django settings being configured.
-
-        Note that this is not fully thread safe as the cached_property decorator
-        can be redundantly called by multiple threads, but there should be no
-        adverse effect in this case.
         """
         return self._retry if self._retry is not None else config.retry()
 
